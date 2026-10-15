@@ -1,0 +1,3 @@
+{"n_qubits": 2,
+ "gates": [{"op": "H", "target": 0}, {"op": "X", "target": 1, "control": 0}],
+ "expected": {"led_on": [0, 3], "note": "Bell state, p=0.5 each"}}

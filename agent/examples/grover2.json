@@ -1,0 +1,10 @@
+{"n_qubits": 2,
+ "gates": [
+  {"op": "H", "target": 0}, {"op": "H", "target": 1},
+  {"op": "Z", "target": 1, "control": 0},
+  {"op": "H", "target": 0}, {"op": "H", "target": 1},
+  {"op": "X", "target": 0}, {"op": "X", "target": 1},
+  {"op": "Z", "target": 1, "control": 0},
+  {"op": "X", "target": 0}, {"op": "X", "target": 1},
+  {"op": "H", "target": 0}, {"op": "H", "target": 1}],
+ "expected": {"led_on": [3], "note": "Grover 2 qubits, target |11>, p=1"}}
