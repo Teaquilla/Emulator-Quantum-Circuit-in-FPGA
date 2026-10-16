@@ -33,6 +33,8 @@ def to_assembly(circuit: dict) -> str:
 
 def encode_word(op: str, target: int = 0, control: int | None = None, param: int = 0) -> int:
     """[opcode:4][target:4][control:4][param:4]; control 0xF = none."""
+    if op in ("RESET", "NOP", "MEASURE"):      # qsim.py assembles these with all operand fields 0
+        return OPCODES[op] << 12
     ctl = NO_CONTROL if control is None else control
     return (OPCODES[op] << 12) | (target << 8) | (ctl << 4) | param
 

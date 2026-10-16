@@ -29,8 +29,7 @@ def gate_matrix(op: str, param: int | None = None) -> np.ndarray:
     if op == "RY":
         return np.array([[c, -sn], [sn, c]], dtype=complex)
     if op == "RZ":
-        # TODO(verify): global phase convention vs qsim.py. Irrelevant for plain RZ
-        # probabilities, but it changes the relative phase of a *controlled* RZ.
+        # Same convention as ref/qsim.py (checked by tests): diag(cos-i*sin, cos+i*sin) of theta/2.
         return np.array([[np.exp(-1j * theta / 2), 0], [0, np.exp(1j * theta / 2)]], dtype=complex)
     raise ValueError(f"unsupported op {op}")
 

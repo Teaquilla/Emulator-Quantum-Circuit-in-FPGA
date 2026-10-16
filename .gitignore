@@ -1,3 +1,7 @@
+# .env
+.env
+.env.*
+!.env.example
 # ---------------------------------------------------------------
 # Vivado (proyek dibuat ulang dengan scripts/create_project.tcl)
 # ---------------------------------------------------------------

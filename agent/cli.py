@@ -33,12 +33,12 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="agent.cli")
     ap.add_argument("request", nargs="?", help="natural-language request")
     ap.add_argument("--circuit", help="run a circuit JSON file through validator + backend (no LLM)")
-    ap.add_argument("--backend", default=None, help="sim-float | ref-fixed | ghdl | board")
+    ap.add_argument("--backend", default=None, help="ref-fixed (default) | sim-float | ghdl | board")
     ap.add_argument("--no-explain", action="store_true")
     a = ap.parse_args(argv)
 
     if a.circuit:
-        backend = a.backend or "sim-float"
+        backend = a.backend or "ref-fixed"
         tb = ToolBox(get_backend(backend))
         with open(a.circuit) as f:
             res = execute(tb, json.load(f), AgentResult(request=a.circuit))

@@ -51,6 +51,7 @@ class CompileSimTests(unittest.TestCase):
     def test_assembly_and_words(self):
         c = validate(BELL).circuit
         self.assertEqual(to_assembly(c), "RESET\nH 0\nCNOT 0 1\n")
+        self.assertEqual(to_words(c)[0], 0xF000)            # RESET, as assembled by qsim.py
         self.assertEqual(to_words(c)[1], 0x10F0)            # H, target 0, no control
         self.assertEqual(to_words(c)[2], 0x2100)            # X, target 1, control 0
 
@@ -157,6 +158,84 @@ class AgentLoopTests(unittest.TestCase):
 
     def test_extract_json_handles_think_blocks(self):
         self.assertEqual(extract_json('<think>hmm {x}</think> {"a": 1}'), {"a": 1})
+
+
+# ---- cross-checks against the project's golden model (skipped if ref/qsim.py is absent) ----
+import os
+from agent.backends import load_qsim
+HAVE_QSIM = os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "ref", "qsim.py"))
+
+
+def instrs_to_circuit(prog):
+    gates = []
+    for i in prog:
+        if i.op == "RESET":
+            gates.append({"op": "RESET"})
+        else:
+            g = {"op": i.op, "target": i.tgt}
+            if i.ctl != 0xF:
+                g["control"] = i.ctl
+            if i.op in ("RY", "RZ"):
+                g["param"] = i.par
+            gates.append(g)
+    return {"n_qubits": 4, "gates": gates, "expected": {"led_on": []}}
+
+
+@unittest.skipUnless(HAVE_QSIM, "ref/qsim.py not found")
+class QsimCrossCheck(unittest.TestCase):
+    def setUp(self):
+        self.q = load_qsim()
+
+    def test_encoding_matches_qsim_for_every_demo(self):
+        for name, src in self.q.PROGRAMS.items():
+            prog = [i for i in self.q.assemble(src) if i.op != "MEASURE"]
+            v = validate(instrs_to_circuit(prog)); self.assertTrue(v.ok, (name, v.errors))
+            asm = to_assembly(v.circuit)
+            ours = [self.q.encode(i) for i in self.q.assemble(asm)]
+            self.assertEqual(to_words(v.circuit), ours, name)
+
+    def test_float_model_matches_qsim_for_every_demo(self):
+        import numpy as np
+        for name, src in self.q.PROGRAMS.items():
+            prog = self.q.assemble(src)
+            ref = np.abs(self.q.run_float(4, prog)) ** 2
+            v = validate(instrs_to_circuit(prog))
+            self.assertTrue(np.allclose(probabilities(v.circuit), ref, atol=1e-9), name)
+
+    def test_ref_fixed_backend_close_to_float(self):
+        tb = ToolBox(get_backend("ref-fixed"))
+        for name in ("bell", "grover2", "rabi_08"):
+            res = execute(tb, load(name), AgentResult(request=name))
+            self.assertTrue(res.ok and res.passed, (name, res.refusal, res.max_abs_diff))
+
+    def test_agent_loop_on_ref_fixed(self):
+        fc = FakeClient([reply(content=json.dumps(BELL)), reply(content="ok")])
+        res = run("bell", CFG, fc, ToolBox(get_backend("ref-fixed")))
+        self.assertTrue(res.ok and res.passed)
+
+
+class DotenvTests(unittest.TestCase):
+    def test_loader_parses_and_never_overrides(self):
+        import tempfile
+        from pathlib import Path
+        from agent.config import load_dotenv
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / ".env"
+            f.write_text("# comment\nT_A=plain\nT_B = \"quoted value\"\nexport T_C='single'\nT_D=keep_me_not\n\nbadline\n",
+                         encoding="utf-8")
+            os.environ["T_D"] = "already-set"
+            for k in ("T_A", "T_B", "T_C"):
+                os.environ.pop(k, None)
+            names = load_dotenv([f])
+            self.assertEqual(sorted(names), ["T_A", "T_B", "T_C"])        # names only, never values
+            self.assertEqual((os.environ["T_A"], os.environ["T_B"], os.environ["T_C"]), ("plain", "quoted value", "single"))
+            self.assertEqual(os.environ["T_D"], "already-set")            # real env wins
+            for k in ("T_A", "T_B", "T_C", "T_D"):
+                os.environ.pop(k, None)
+
+    def test_missing_file_is_fine(self):
+        from agent.config import load_dotenv
+        self.assertEqual(load_dotenv(["/nonexistent/.env"]), [])
 
 
 if __name__ == "__main__":
